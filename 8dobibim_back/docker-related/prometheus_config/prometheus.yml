@@ -1,0 +1,19 @@
+# docker-related/prometheus_config/prometheus.yml
+
+global:
+  scrape_interval: 15s # 기본 스크랩 간격
+  evaluation_interval: 15s # 기본 평가 간격
+
+scrape_configs:
+  # Prometheus 자신을 스크랩하는 설정
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090'] # Prometheus 웹 UI/API 포트
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx_exporter:9113']
+  # 나중에 LiteLLM 등 다른 서비스에서 메트릭을 제공하면 여기에 추가
+  # 예시: LiteLLM이 8000번 포트에서 메트릭을 제공한다고 가정
+  # - job_name: 'litellm'
+  #   static_configs:
+  #     - targets: ['litellm:8000'] # Docker 네트워크 내 서비스 이름과 메트릭 포트
