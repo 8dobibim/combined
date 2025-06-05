@@ -1,0 +1,60 @@
+# docker-related/litellm_config.yaml
+
+model_list:
+- model_name: gpt-3.5-turbo
+  litellm_params:
+    model: azure/gpt-35-turbo-deployment
+    api_base: os.environ/AZURE_API_BASE # runs os.getenv("AZURE_API_BASE")
+    api_key: os.environ/AZURE_API_KEY # runs os.getenv("AZURE_API_KEY")
+    api_version: "2023-07-01-preview"
+- model_name: gemini-pro
+  litellm_params:
+    model: vertex_ai/gemini-1.5-pro
+    vertex_project: "project-id"
+    vertex_location: "us-central1"
+    vertex_credentials: "/path/to/service_account.json"
+    # [OPTIONAL] Do this OR `!gcloud auth application-default login` - run this to add vertex credentials to your env
+
+  # 예시 2: Azure OpenAI의 특정 배포 모델을 'azure-gpt35'라는 이름으로 노출
+  # - model_name: azure-gpt35
+  #   litellm_params:
+  #     model: azure/your-azure-deployment-name # Azure 배포 이름 명시
+  #     api_key: os.environ/AZURE_API_KEY
+  #     api_base: os.environ/AZURE_API_BASE
+  #     api_version: os.environ/AZURE_API_VERSION
+
+  # 예시 3: 로컬 Ollama 모델을 'local-llama3'라는 이름으로 노출 (Ollama가 http://localhost:11434 에서 실행 중일 경우)
+  #          Docker 내부에서 호스트의 Ollama 접근 시 주의 필요 (아래 general_settings 참고)
+  # - model_name: local-llama3
+  #   litellm_params:
+  #     model: ollama/llama3 # 'ollama/' 접두사 사용
+  #     api_base: http://host.docker.internal:11434 # Docker Desktop 사용 시 호스트 접근 주소
+
+  # 예시 4: Anthropic Claude 3 모델
+  # - model_name: claude-3-opus
+  #   litellm_params:
+  #     model: claude-3-opus-20240229
+  #     api_key: os.environ/ANTHROPIC_API_KEY
+
+general_settings:
+
+litellm_settings:
+  # 로그 레벨 설정 등
+  set_verbose: True
+  # Docker 컨테이너 내에서 호스트 머신(예: 로컬 Ollama)에 접근해야 할 경우,
+  # Docker 네트워크 설정에 따라 'host.docker.internal' 또는 호스트 IP 직접 사용 필요
+  # router_settings:
+  #   routing_strategy: simple-shuffle # 또는 다른 라우팅 전략
+
+# 환경 변수를 config 파일 내에서 참조하여 API 키 설정 가능
+environment_variables:
+  # # .env 파일에 정의된 변수들을 LiteLLM 내부에서 사용 가능하게 함
+  # # - OPENAI_API_KEY
+  # # - AZURE_API_KEY
+  # # - AZURE_API_BASE
+  # # - AZURE_API_VERSION
+  # # - ANTHROPIC_API_KEY
+  # - LITELLM_MASTER_KEY
+  # - LITELLM_SALT_KEY
+  # - LITELLM_LICENSE
+  # # 필요한 다른 변수들 추가

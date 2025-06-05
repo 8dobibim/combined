@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-ab-proxy
+  namespace: default
+  labels:
+    app: nginx-ab-proxy
+spec:
+  replicas: 2  # 고가용성을 위해 2개로 증가
+  selector:
+    matchLabels:
+      app: nginx-ab-proxy
+  template:
+    metadata:
+      labels:
+        app: nginx-ab-proxy
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - nginx-ab-proxy
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /nginx_status
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /nginx_status
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-logs
+              mountPath: /var/log/nginx
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+        - name: nginx-logs
+          emptyDir: {}
