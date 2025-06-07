@@ -1,0 +1,3 @@
+[submodule "open-webui"]
+	path = open-webui
+	url = https://github.com/mini-777/open-webui.git
