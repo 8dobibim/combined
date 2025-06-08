@@ -43,8 +43,7 @@ namespace = "llm-project" # variables.tf의 default 값과 일치하거나 원�
 
 # --- Image Versions (variables.tf에 정의된 기본값과 다르게 설정하고 싶을 경우) ---
 # litellm_image = "ghcr.io/berriai/litellm:main-latest"
-# openwebui_image_v1 = "ghcr.io/open-webui/open-webui:v0.6.7"
-# openwebui_image_v2 = "ghcr.io/open-webui/open-webui:v0.6.6"
+# openwebui_image = "docker.io/jaywoo9933/8dobibim:8dobibim-openwebui-1.0"
 # prometheus_image = "prom/prometheus:v2.47.1"
 # postgres_image = "postgres:13"
 
@@ -75,6 +74,9 @@ postgres_db = "<YOUR_ACTUAL_POSTGRES_DB_NAME>"          # 반드시 변경
 # PostgreSQL 데이터베이스 URL (예: postgresql://user:password@host:port/db)
 # main.tf에서 DATABASE_URL 변수 주입 시 사용됩니다.
 DATABASE_URL = "postgresql://<YOUR_ACTUAL_POSTGRES_USER>:<YOUR_ACTUAL_POSTGRES_PASSWORD>@postgres-service:5432/<YOUR_ACTUAL_POSTGRES_DB_NAME>"
+
+#grafana admin password 설정
+grafana_admin_password = "your_strong_grafana_password"#반드시 변경
 ```
 
 ### 번외. `main.tf`에서의 변수 활용
