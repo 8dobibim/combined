@@ -1,4 +1,4 @@
-# variables.tf
+# variables.tf 
 variable "namespace" {
   description = "Kubernetes namespace to deploy resources into"
   type        = string
@@ -12,18 +12,11 @@ variable "litellm_image" {
   default     = "ghcr.io/berriai/litellm:main-latest" # 사용하려는 LiteLLM 이미지 버전으로 수정
 }
 
-variable "openwebui_image_v1" {
-  description = "OpenWebUI Docker image and tag for version 1"
+variable "openwebui_image" {
+  description = "OpenWebUI Docker image and tag"
   type        = string
-  default     = "ghcr.io/open-webui/open-webui:v0.6.7" # 첫 번째 OpenWebUI 버전
+  default     = "docker.io/jaywoo9933/8dobibim:8dobibim-openwebui-1.0" # custom OpenWebUI 
 }
-
-variable "openwebui_image_v2" {
-  description = "OpenWebUI Docker image and tag for version 2"
-  type        = string
-  default = "ghcr.io/open-webui/open-webui:v0.6.6" # 두 번째 OpenWebUI 버전
-}
-
 variable "prometheus_image" {
   description = "Prometheus Docker image and tag"
   type        = string
@@ -32,8 +25,14 @@ variable "prometheus_image" {
 
 variable "postgres_image" {
   description = "PostgreSQL Docker image and tag"
-  type        = string
+  type        = string 
   default     = "postgres:13" # 사용하려는 PostgreSQL 이미지 버전으로 수정
+}
+
+variable "grafana_image" {
+  description = "Grafana Docker image and tag"
+  type        = string
+  default     = "grafana/grafana:10.2.2" # 사용하려는 Grafana 이미지 버전으로 수정
 }
 
 # --- Ports ---
@@ -52,7 +51,7 @@ variable "litellm_service_nodeport" {
 
 variable "litellm_metrics_port" {
   description = "LiteLLM Prometheus metrics port"
-  type        = number
+  type        = number 
   default     = 9000
 }
 
@@ -75,7 +74,7 @@ variable "postgres_port" {
 }
 
 variable "openwebui_service_nodeport" {
-  description = "NodePort for OpenWebUI service (for local access)"
+  description = "NodePort for OpenWebUI service (for local access)" 
   type        = number
   default     = 30000 # 30000-32767 범위 내에서 사용 가능한 포트 선택
 }
@@ -86,15 +85,27 @@ variable "prometheus_service_nodeport" {
   default     = 30090 # 30000-32767 범위 내에서 사용 가능한 포트 선택
 }
 
+variable "grafana_port" {
+  description = "Grafana web UI port"
+  type        = number
+  default     = 3000
+}
+
+variable "grafana_service_nodeport" {
+  description = "NodePort for Grafana service (for local access)"
+  type        = number
+  default     = 30300 # 30000-32767 범위 내에서 사용 가능한 포트 선택
+}
+
 
 # --- Environmental Variables and Configuration (Sensitive handled here) ---
 # LiteLLM Credentials
 
 variable "LITELLM_MASTER_KEY" {
   description = "LiteLLM Master Key for authentication/validation"
-  type        = string
+  type        = string 
   sensitive   = true # 민감 정보로 마킹
-  # default 값은 설정하지 않거나 더미 값으로 유지하세요.
+  # default 값은 설정하지 않거나 더미 값으로 유지하세요. 
   # default = "dummy_master_key_replace_me"
 }
 
@@ -102,7 +113,7 @@ variable "LITELLM_SALT_KEY" {
   description = "LiteLLM SALT Key for authentication/validation"
   type        = string
   sensitive   = true # 민감 정보로 마킹
-  # default 값은 설정하지 않거나 더미 값으로 유지하세요.
+  # default 값은 설정하지 않거나 더미 값으로 유지하세요. 
   # default = "dummy_master_key_replace_me"
 }
 
@@ -126,10 +137,23 @@ variable "AZURE_API_BASE" {
 
 variable "AZURE_API_VERSION" {
   description = "AZURE_API_VERSION"
-  type        = string
+  type        = string 
   sensitive   = true # 민감 정보로 마킹
 }
 
+variable "grafana_admin_user" {
+  description = "Grafana admin username"
+  type        = string
+  sensitive   = true
+  default     = "admin" # 기본값 설정, 실제 배포 시에는 변경 권장
+}
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
+  type        = string
+  sensitive   = true
+  # default     = "prom-operator" # 실제 배포 시에는 강력한 비밀번호로 변경 권장
+}
 
 
 # PostgreSQL Credentials (Sensitive)
@@ -148,7 +172,7 @@ variable "postgres_password" {
 variable "postgres_db" {
   description = "PostgreSQL database name"
   type        = string
-  sensitive   = true # 민감 정보로 마킹 (DB 이름도 민감할 수 있음)
+  sensitive   = true # 민감 정보로 마킹 (DB 이름도 민감할 수 있음) 
 }
 
 variable "DATABASE_URL" {
@@ -158,7 +182,7 @@ variable "DATABASE_URL" {
 }
 
 # LiteLLM API Keys / Configuration specific secrets (Sensitive)
-# 실제 사용하는 LLM 프로바이더에 따라 필요한 키를 여기에 추가하세요.
+# 실제 사용하는 LLM 프로바이더에 따라 필요한 키를 여기에 추가하세요. 
 #variable "llm_provider_key_example" {
 #  description = "Example API key for an LLM provider"
 #  type        = string
@@ -167,7 +191,7 @@ variable "DATABASE_URL" {
 
 # LiteLLM Config file content (Non-sensitive, can be in ConfigMap)
 # 실제 litellm config.yaml 파일 내용을 여기에 복사하거나,
-# file() 함수를 사용해서 읽어올 수도 있습니다.
+# file() 함수를 사용해서 읽어올 수도 있습니다. 
 # 여기서는 간단하게 변수로 관리합니다.
 variable "litellm_config_content" {
   description = "Content of the LiteLLM config.yaml file"
@@ -191,7 +215,7 @@ litellm_settings:
   # 로그 레벨 설정 등
   set_verbose: True
   # Docker 컨테이너 내에서 호스트 머신(예: 로컬 Ollama)에 접근해야 할 경우,
-  # Docker 네트워크 설정에 따라 'host.docker.internal' 또는 호스트 IP 직접 사용 필요
+  # Docker 네트워크 설정에 따라 'host.docker.internal' 또는 호스트 IP 직접 사용 필요 
   # router_settings:
   #   routing_strategy: simple-shuffle # 또는 다른 라우팅 전략
 
@@ -206,9 +230,8 @@ variable "prometheus_config_content" {
   type        = string
   default = <<EOF
 global:
-  scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
-  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
-
+  scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute. 
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute. 
 scrape_configs:
   - job_name: "kubernetes-pods"
     kubernetes_sd_configs:
@@ -223,7 +246,7 @@ scrape_configs:
         regex: (.+)
       - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
         action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
+        regex: ([^:]+)(?::\d+)?;(\d+) 
         replacement: $1:$2
         target_label: __address__
       - action: labelmap
@@ -236,7 +259,7 @@ scrape_configs:
         target_label: kubernetes_pod_name
 
   - job_name: "litellm"
-    # LiteLLM 서비스를 타겟팅 (서비스 이름 사용)
+    # LiteLLM 서비스를 타겟팅 (서비스 이름 사용) 
     kubernetes_sd_configs:
       - role: endpoints
     relabel_configs:
@@ -247,7 +270,7 @@ scrape_configs:
         action: keep
         regex: metrics # metrics 포트 이름과 일치
       - source_labels: [__address__]
-        target_label: __address__
+        target_label: __address__ 
         regex: ([^:]+)(?::\d+)?
         replacement: $1:9000 # LiteLLM metrics port
 
