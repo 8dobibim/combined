@@ -254,9 +254,9 @@ AI Integration
 
 ```
 combined/
-├── 8dobibim_back/              # AWS EKS 인프라 및 운영
+├── 8dobibim_back/              # AWS EKS 인프라 구축 및 배포
 │   ├── docs/                   # 한국어 운영 문서
-│   ├── terraform-related/      # Terraform 설정
+│   ├── terraform-related/      # Terraform 파일들 (AWS / local)
 │   ├── argocd/                # GitOps 배포 설정
 │   └── README.md              # 인프라 배포 가이드
 ├── open-webui/                # AI 채팅 애플리케이션 (서브모듈)
