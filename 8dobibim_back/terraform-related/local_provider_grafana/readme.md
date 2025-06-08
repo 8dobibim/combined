@@ -431,8 +431,8 @@ resource "kubernetes_service" "prometheus_service" {
     port {
       protocol    = "TCP"
        port        = var.prometheus_port
-       target_port = var.prometheus_port [cite: 108]
-       node_port   = var.prometheus_service_nodeport [cite: 108]
+       target_port = var.prometheus_port
+       node_port   = var.prometheus_service_nodeport
     }
     type = "NodePort"
   }
