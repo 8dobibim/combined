@@ -8,55 +8,129 @@
 
 | 구성 요소         | 설명                        | 역할                             |
 | ----------------- | --------------------------- | -------------------------------- |
-| **8dobibim_back** | AWS EKS 인프라 배포 및 운영 | 클라우드 인프라, CI/CD, 모니터링 |
-| **open-webui**    | AI 채팅 플랫폼 애플리케이션 | 웹 애플리케이션, AI 모델 통합    |
+| **8dobibim_back** | 배포 및 구성을 위한 파일 및 문서 포함 | 클라우드 인프라, CI/CD, 모니터링 |
+| **open-webui**    | AI 채팅 서비스를 위한 라이브러리 | 웹 애플리케이션, AI 모델 통합    |
 
-### 핵심 목표
+> 아래 배포 가이드를 따라, 당신만의 솔루션을 시작해보세요.
+
+### 핵심 기능
 
 - 🌐 **다중 LLM 지원**: OpenAI, Anthropic, Ollama 등 다양한 AI 모델 통합
 - ☁️ **클라우드 네이티브**: AWS EKS 기반의 확장 가능한 인프라
 - 🔄 **완전 자동화**: Infrastructure as Code 및 GitOps 기반 배포
 - 📈 **엔터프라이즈급**: 고가용성, 보안, 모니터링을 갖춘 운영 환경
 
+## 🚀 프로젝트 구동 방법
+
+### 8dobibim_back (인프라 배포)
+
+AWS EKS 클러스터 및 관련 인프라를 배포하는 방법입니다.
+
+#### 사전 준비사항
+
+```bash
+# 필수 도구 설치 확인
+aws --version          # AWS CLI v2
+terraform --version    # Terraform v1.5+
+kubectl version        # kubectl v1.24+
+```
+
+#### 1단계: AWS 자격 증명 설정
+
+```bash
+aws configure
+# Access Key ID, Secret Access Key, Region 설정
+```
+
+#### 2단계: 인프라 배포
+
+```bash
+cd 8dobibim_back/terraform-related/terraform
+
+# Terraform 초기화
+terraform init
+
+# 배포 계획 확인
+terraform plan -var-file="dev.tfvars"
+
+# 인프라 배포
+terraform apply
+```
+
+#### 3단계: EKS 클러스터 연결
+
+```bash
+# kubectl 설정
+aws eks update-kubeconfig --region ap-northeast-2 --name openwebui-eks-dev
+
+# 클러스터 연결 확인
+kubectl get nodes
+```
+
+> 📘 **상세한 배포 가이드**: `8dobibim_back/README.md` 및 `docs/` 디렉토리의 한국어 문서를 참조하세요.
+>
+> - [사전준비사항](8dobibim_back/docs/사전준비사항.md)
+> - [Terraform 설정](8dobibim_back/docs/terraform%20설정.md)
+> - [EKS 클러스터 배포 가이드](8dobibim_back/docs/eks%20클러스터%20배포%20가이드.md)
+
+
 ## 🏗️ 아키텍처
 
 ### 전체 시스템 아키텍처
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        사용자                                 │
-│                   (웹 브라우저/모바일)                           │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────┴───────────────────────────────────────┐
-│                     AWS Cloud                               │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │                Application Load Balancer                ││
-│  └─────────────────────┬───────────────────────────────────┘│
-│                        │                                    │
-│  ┌─────────────────────┴───────────────────────────────────┐│
-│  │                 EKS Cluster                             ││
-│  │  ┌─────────────────┐  ┌────────────────────────────────┐││
-│  │  │   Open WebUI    │  │        LiteLLM Proxy           │││
-│  │  │ (프론트엔드/백엔드) │  │    (AI 모델 통합)                 │││
-│  │  └─────────────────┘  └────────────────────────────────┘││
-│  │  ┌─────────────────┐  ┌────────────────────────────────┐││
-│  │  │   PostgreSQL    │  │             Redis              │││
-│  │  │   (메인 DB)      │  │           (캐시/세션)            │││
-│  │  └─────────────────┘  └────────────────────────────────┘││
-│  │  ┌─────────────────┐  ┌────────────────────────────────┐││
-│  │  │   Prometheus    │  │               Grafana          │││
-│  │  │   (메트릭 수집)    │  │              (모니터링)          │││
-│  │  └─────────────────┘  └────────────────────────────────┘││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────┴───────────────────────────────────────┐
-│                   External APIs                             │
-│          OpenAI • Anthropic • Ollama                        │
-└─────────────────────────────────────────────────────────────┘
-```
+graph TD
+    %% 사용자 흐름
+    User(User) -->|interact| OpenWebUI(OpenWebUI<br>Multi-chat Interface)
+    OpenWebUI -->|REST API| LiteLLM(LiteLLM)
 
+    %% LLM Providers
+ 
+    subgraph API provider
+	    OpenAI(OpenAI API)
+	    Anthropic(Anthropic API)
+	    Gemini(Google Gemini API)
+    end
+	  LiteLLM -->|route prompt| Anthropic
+	  
+    %% Security
+    LiteLLM -->|secure access| AccessControl(Access Control)
+    LiteLLM -->|manage keys| APIKeyStorage
+
+    %% Infra / Orchestration
+    subgraph Infra["Infrastructure"]
+        Kubernetes(EKS)
+        Terraform(Terraform)
+        ArgoCD(ArgoCD / Flux)
+    end
+
+    Terraform -->|provision infra| Kubernetes
+    ArgoCD -->|deploy containers| Kubernetes
+    GitHub(GitHub) -->|deploy| ArgoCD
+
+    %% Monitoring & Logging
+    subgraph Monitoring["Monitoring & Logging"]
+        Prometheus(Prometheus & Grafana)
+   
+    end
+    
+    subgraph security
+	    AccessControl 
+	    APIKeyStorage
+	  end
+
+    Prometheus -->|monitor| Kubernetes
+    Prometheus -->|monitor| LiteLLM
+
+    %% OpenWebUI Infra 연계
+    Kubernetes --> OpenWebUI
+
+    %% Style (optional)
+    style User fill:#f39c12,stroke:#333,stroke-width:1px
+    style Infra stroke:#f39c12,stroke-width:2px
+    style Monitoring stroke:#3498db,stroke-width:2px
+    style AccessControl stroke:#d35400,stroke-width:2px
+    style APIKeyStorage stroke:#d35400,stroke-width:2px
+```
 ### 인프라 아키텍처 (8dobibim_back)
 
 ```
@@ -126,150 +200,6 @@ AI Integration
 | **AI/ML**        | LangChain, sentence-transformers   | AI 모델 통합        |
 | **컨테이너**     | Docker, Kubernetes                 | 애플리케이션 배포   |
 
-## 🚀 프로젝트 구동 방법
-
-### 8dobibim_back (인프라 배포)
-
-AWS EKS 클러스터 및 관련 인프라를 배포하는 방법입니다.
-
-#### 사전 준비사항
-
-```bash
-# 필수 도구 설치 확인
-aws --version          # AWS CLI v2
-terraform --version    # Terraform v1.5+
-kubectl version        # kubectl v1.24+
-```
-
-#### 1단계: AWS 자격 증명 설정
-
-```bash
-aws configure
-# Access Key ID, Secret Access Key, Region 설정
-```
-
-#### 2단계: 인프라 배포
-
-```bash
-cd 8dobibim_back/terraform-related/terraform
-
-# Terraform 초기화
-terraform init
-
-# 배포 계획 확인
-terraform plan -var-file="dev.tfvars"
-
-# 인프라 배포
-terraform apply
-```
-
-#### 3단계: EKS 클러스터 연결
-
-```bash
-# kubectl 설정
-aws eks update-kubeconfig --region ap-northeast-2 --name openwebui-eks-dev
-
-# 클러스터 연결 확인
-kubectl get nodes
-```
-
-> 📘 **상세한 배포 가이드**: `8dobibim_back/README.md` 및 `docs/` 디렉토리의 한국어 문서를 참조하세요.
->
-> - [사전준비사항](8dobibim_back/docs/사전준비사항.md)
-> - [Terraform 설정](8dobibim_back/docs/terraform%20설정.md)
-> - [EKS 클러스터 배포 가이드](8dobibim_back/docs/eks%20클러스터%20배포%20가이드.md)
-
-### open-webui (애플리케이션 실행)
-
-Open WebUI 애플리케이션을 실행하는 다양한 방법을 제공합니다.
-
-#### 방법 1: Docker 사용 (권장)
-
-**기본 설치 (Ollama 로컬 사용)**
-
-```bash
-docker run -d -p 3000:8080 \
-  --add-host=host.docker.internal:host-gateway \
-  -v open-webui:/app/backend/data \
-  --name open-webui \
-  --restart always \
-  ghcr.io/open-webui/open-webui:main
-```
-
-**OpenAI API만 사용**
-
-```bash
-docker run -d -p 3000:8080 \
-  -e OPENAI_API_KEY=your_secret_key \
-  -v open-webui:/app/backend/data \
-  --name open-webui \
-  --restart always \
-  ghcr.io/open-webui/open-webui:main
-```
-
-**GPU 지원**
-
-```bash
-docker run -d -p 3000:8080 \
-  --gpus all \
-  --add-host=host.docker.internal:host-gateway \
-  -v open-webui:/app/backend/data \
-  --name open-webui \
-  --restart always \
-  ghcr.io/open-webui/open-webui:cuda
-```
-
-#### 방법 2: Python pip 설치
-
-```bash
-# Python 3.11 사용 권장
-pip install open-webui
-
-# 서버 실행
-open-webui serve
-```
-
-#### 방법 3: 로컬 개발 환경
-
-**프론트엔드 개발**
-
-```bash
-cd open-webui
-npm install
-npm run dev
-# http://localhost:5173에서 개발 서버 실행
-```
-
-**백엔드 개발**
-
-```bash
-cd open-webui/backend
-pip install -r requirements.txt
-./dev.sh
-# 또는 python -m open_webui.main
-```
-
-#### 방법 4: Docker Compose (전체 스택)
-
-```bash
-cd open-webui
-docker-compose up -d
-```
-
-#### 애플리케이션 접속
-
-- **로컬 접속**: http://localhost:3000 (Docker) 또는 http://localhost:8080 (pip)
-- **EKS 클러스터 접속**:
-  ```bash
-  kubectl port-forward svc/openwebui-service 8080:8080 -n openwebui
-  # http://localhost:8080
-  ```
-
-> 📘 **상세한 설치 가이드**: `open-webui/README.md`를 참조하세요.
->
-> - 다양한 설치 옵션과 환경 설정
-> - 트러블슈팅 가이드
-> - 고급 기능 활용법
 
 ## 📁 프로젝트 구조
 
