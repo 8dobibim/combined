@@ -440,7 +440,7 @@ resource "kubernetes_deployment" "openwebui_deployment" {
       spec {
         container {
           name  = "openwebui"
-          image = "ghcr.io/open-webui/open-webui:main"
+          image = "docker.io/jaywoo9933/8dobibim:8dobibim-openwebui-1.0"
           command: ["uvicorn", "open_webui.main:app", "--host", "0.0.0.0", "--port", "3000"]
           env {
             name  = "DATABASE_URL"
