@@ -65,7 +65,28 @@ resource "kubernetes_config_map" "prometheus_config" {
   }
 }
 
-# --- PersistentVolumeClaim (for PostgreSQL) ---
+# Grafana DataSource 설정을 위한 ConfigMap (Prometheus를 데이터 소스로 추가)
+resource "kubernetes_config_map" "grafana_datasources" {
+  metadata {
+    name      = "grafana-datasources"
+    namespace = var.namespace
+  }
+  data = {
+    "prometheus.yaml" = <<EOF
+apiVersion: 1
+datasources:
+- name: Prometheus
+  type: prometheus
+  url: http://prometheus-service:${var.prometheus_port} # Prometheus Service의 ClusterIP와 포트
+  access: proxy
+  isDefault: true
+  version: 1
+  editable: true
+EOF
+  }
+}
+
+# --- PersistentVolumeClaim (for PostgreSQL and Grafana) ---
 
 resource "kubernetes_persistent_volume_claim" "postgres_pvc" {
   metadata {
@@ -85,12 +106,28 @@ resource "kubernetes_persistent_volume_claim" "postgres_pvc" {
   }
 }
 
+resource "kubernetes_persistent_volume_claim" "grafana_pvc" {
+  metadata {
+    name      = "grafana-pvc"
+    namespace = var.namespace
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"] # 단일 Pod에서만 읽기/쓰기 가능
+    resources {
+      requests = {
+        storage = "1Gi" # Grafana 데이터 저장 공간
+      }
+    }
+    # storageClassName: 로컬 K8s 환경에 따라 기본 StorageClass가 설정되어 있지 않다면 명시 필요
+  }
+}
+
 # --- Deployments ---
 
 # PostgreSQL Deployment
 resource "kubernetes_deployment" "postgres_deployment" {
   metadata {
-    name      = "postgres"
+    name      = "postgres" 
     namespace = var.namespace
   }
   spec {
@@ -106,7 +143,7 @@ resource "kubernetes_deployment" "postgres_deployment" {
     template {
       metadata {
         labels = {
-          app = "postgres"
+          app = "postgres" 
         }
       }
       spec {
@@ -114,7 +151,7 @@ resource "kubernetes_deployment" "postgres_deployment" {
           name  = "postgres"
           image = var.postgres_image
           port {
-            container_port = var.postgres_port
+            container_port = var.postgres_port 
           }
           # Secret에서 환경 변수 주입
           env_from {
@@ -123,13 +160,13 @@ resource "kubernetes_deployment" "postgres_deployment" {
             }
           }
           env {
-            name = "DATABASE_URL" # 기존 설정
+            name = "DATABASE_URL" # 기존 설정 
             value = "postgresql://litellm_user:4321@postgres:5432/litellm_db"
           }
-          # !!! 이곳에 STORE_MODEL_IN_DB 환경 변수를 추가합니다 !!!
+          # !!! 이곳에 STORE_MODEL_IN_DB 환경 변수를 추가합니다 !!! 
           env {
             name = "STORE_MODEL_IN_DB"
-            value = "True" # 값은 문자열로 입력합니다.
+            value = "True" # 값은 문자열로 입력합니다. 
           }
           volume_mount {
             name       = "postgres-storage"
@@ -138,26 +175,26 @@ resource "kubernetes_deployment" "postgres_deployment" {
           # health check (optional but recommended)
           /*
           liveness_probe {
-            exec {
+            exec { 
               command = ["pg_isready", "-U", "$(POSTGRES_USER)"]
             }
             initial_delay_seconds = 30
             period_seconds        = 10
             timeout_seconds       = 5
-            success_threshold     = 1
+            success_threshold     = 1 
             failure_threshold     = 6
           }
           readiness_probe {
             exec {
                command = ["pg_isready", "-U", "$(POSTGRES_USER)"]
             }
-            initial_delay_seconds = 5
+            initial_delay_seconds = 5 
             period_seconds        = 10
             timeout_seconds       = 5
             success_threshold     = 1
             failure_threshold     = 3
           }
-          */
+          */ 
         }
         volume {
           name = "postgres-storage"
@@ -173,7 +210,7 @@ resource "kubernetes_deployment" "postgres_deployment" {
 # LiteLLM Deployment
 resource "kubernetes_deployment" "litellm_deployment" {
   metadata {
-    name      = "litellm"
+    name      = "litellm" 
     namespace = var.namespace
     annotations = {
       # Prometheus가 이 Pod를 스크랩하도록 설정 (Prometheus config와 연동)
@@ -186,7 +223,7 @@ resource "kubernetes_deployment" "litellm_deployment" {
     replicas = 1
     selector {
       match_labels = {
-        app = "litellm"
+        app = "litellm" 
       }
     }
     template {
@@ -198,21 +235,21 @@ resource "kubernetes_deployment" "litellm_deployment" {
       spec {
         container {
           name  = "litellm"
-          image = var.litellm_image
+          image = var.litellm_image 
           args = [
             "--config", "/app/config/config.yaml",
             "--host", "0.0.0.0",
             "--port", "${var.litellm_api_port}",
             "--telemetry", "False" # ConfigMap 설정과 일치시키는 것이 좋음
             # --prometheus_url, --prometheus_port 등 필요 시 args나 env로 설정
-          ]
+          ] 
           port {
             name = "api"
             container_port = var.litellm_api_port
           }
           port {
             name = "metrics"
-            container_port = var.litellm_metrics_port
+            container_port = var.litellm_metrics_port 
           }
           # Secret에서 환경 변수 주입 (LLM API 키 등)
           env_from {
@@ -221,28 +258,28 @@ resource "kubernetes_deployment" "litellm_deployment" {
             }
           }
           # ConfigMap에서 환경 변수 주입 (비밀이 아닌 설정)
-          # .env 파일 내용을 configmap으로 만든 경우 사용
+          # .env 파일 내용을 configmap으로 만든 경우 사용 
           /*
           env_from {
             config_map_ref {
               name = "litellm-config" # 또는 .env 파일용 configmap 이름
             }
           }
-          */
+          */ 
           # ConfigMap에서 config.yaml 파일 마운트
           volume_mount {
             name       = "litellm-config-volume"
             mount_path = "/app/config" # LiteLLM 컨테이너 내 config 파일 경로
           }
           # PostgreSQL 연결 설정 (환경 변수 또는 config.yaml에 따라 설정)
-          # DB 연결 정보는 주로 Secret으로, 호스트는 Service 이름으로 설정
+          # DB 연결 정보는 주로 Secret으로, 호스트는 Service 이름으로 설정 
         }
         volume {
           name = "litellm-config-volume"
           config_map {
             name = kubernetes_config_map.litellm_config.metadata[0].name
             # items는 ConfigMap의 특정 키만 마운트할 때 사용
-            items {
+            items { 
               key  = "config.yaml"
               path = "config.yaml" # 마운트될 파일 이름
             }
@@ -253,22 +290,22 @@ resource "kubernetes_deployment" "litellm_deployment" {
   }
 }
 
-# OpenWebUI Deployment (Version 1)
-resource "kubernetes_deployment" "openwebui_deployment_v1" {
+# OpenWebUI Deployment (Single Version)
+resource "kubernetes_deployment" "openwebui_deployment" {
   metadata {
-    name      = "openwebui-v1"
+    name      = "openwebui" 
     namespace = var.namespace
   }
   spec {
-    replicas = 1 # 각 버전별 Pod 1개
+    replicas = 1 # Ensures only one pod is run
     selector {
       match_labels = {
-        app     = "openwebui" # 두 버전의 Deployment가 동일한 라벨 사용
-        version = "v1"        # 버전 구분을 위한 라벨
+        app = "openwebui"
+        # Removed version label here to simplify if you only have one deployment
       }
     }
-    strategy {
-       type = "RollingUpdate"
+    strategy { 
+      type = "RollingUpdate"
        rolling_update {
          max_unavailable = "25%"
          max_surge       = "25%"
@@ -277,24 +314,23 @@ resource "kubernetes_deployment" "openwebui_deployment_v1" {
     template {
       metadata {
         labels = {
-          app     = "openwebui"
-          version = "v1"
-        }
+          app = "openwebui"
+        } 
       }
       spec {
         container {
           name  = "openwebui"
-          image = var.openwebui_image_v1
+          image = var.openwebui_image
           port {
             container_port = var.openwebui_port
           }
-          env{
+          env{ 
             name = "DEFAULT_MODELS"
             value = "gemini-2.0-flash"
           }
           env {
             name = "OPENAI_API_BASE_URL"
-            # LiteLLM 서비스의 ClusterIP와 포트를 사용합니다.
+            # LiteLLM 서비스의 ClusterIP와 포트를 사용합니다. 
             value = "http://litellm-service:${var.litellm_api_port}"
           }
           env {
@@ -303,69 +339,7 @@ resource "kubernetes_deployment" "openwebui_deployment_v1" {
           }
           # OpenWebUI가 필요로 하는 기타 환경 변수/시크릿 주입 (있다면)
           /*
-          env_from {
-            secret_ref {
-              name = kubernetes_secret.app_secrets.metadata[0].name # 또는 OpenWebUI 전용 Secret
-            }
-          }
-          */
-        }
-      }
-    }
-  }
-}
-
-# OpenWebUI Deployment (Version 2)
-resource "kubernetes_deployment" "openwebui_deployment_v2" {
-  metadata {
-    name      = "openwebui-v2"
-    namespace = var.namespace
-  }
-  spec {
-    replicas = 1 # 각 버전별 Pod 1개
-    selector {
-      match_labels = {
-        app     = "openwebui" # 두 버전의 Deployment가 동일한 라벨 사용
-        version = "v2"        # 버전 구분을 위한 라벨
-      }
-    }
-    strategy {
-       type = "RollingUpdate"
-       rolling_update {
-         max_unavailable = "25%"
-         max_surge       = "25%"
-       }
-    }
-    template {
-      metadata {
-        labels = {
-          app     = "openwebui"
-          version = "v2"
-        }
-      }
-      spec {
-        container {
-          name  = "openwebui"
-          image = var.openwebui_image_v2
-          port {
-            container_port = var.openwebui_port
-          }
-          env{
-            name = "DEFAULT_MODELS"
-            value = "gemini-2.0-flash"
-          }
-          env {
-            name = "OPENAI_API_BASE_URL"
-            # LiteLLM 서비스의 ClusterIP와 포트를 사용합니다.
-            value = "http://litellm-service:${var.litellm_api_port}"
-          }
-          env {
-            name = "OPENAI_API_KEY"
-            value = "dummy-key"
-          }
-          # OpenWebUI가 필요로 하는 기타 환경 변수/시크릿 주입 (있다면)
-          /*
-          env_from {
+          env_from { 
             secret_ref {
               name = kubernetes_secret.app_secrets.metadata[0].name # 또는 OpenWebUI 전용 Secret
             }
@@ -380,7 +354,7 @@ resource "kubernetes_deployment" "openwebui_deployment_v2" {
 # Prometheus Deployment
 resource "kubernetes_deployment" "prometheus_deployment" {
   metadata {
-    name      = "prometheus"
+    name      = "prometheus" 
     namespace = var.namespace
   }
   spec {
@@ -394,7 +368,7 @@ resource "kubernetes_deployment" "prometheus_deployment" {
        type = "RollingUpdate"
        rolling_update {
          max_unavailable = "25%"
-         max_surge       = "25%"
+         max_surge       = "25%" 
        }
     }
     template {
@@ -406,7 +380,7 @@ resource "kubernetes_deployment" "prometheus_deployment" {
       spec {
         container {
           name  = "prometheus"
-          image = var.prometheus_image
+          image = var.prometheus_image 
           args = [
             "--config.file=/etc/prometheus/prometheus.yml",
             "--storage.tsdb.path=/prometheus",
@@ -414,7 +388,7 @@ resource "kubernetes_deployment" "prometheus_deployment" {
             "--web.console.templates=/usr/share/prometheus/consoles"
           ]
           port {
-            container_port = var.prometheus_port
+            container_port = var.prometheus_port 
           }
           volume_mount {
             name       = "prometheus-config-volume"
@@ -422,7 +396,7 @@ resource "kubernetes_deployment" "prometheus_deployment" {
           }
           # 데이터 지속성을 위한 볼륨 마운트 (선택 사항, 로컬 테스트에서는 생략 가능)
           /*
-          volume_mount {
+          volume_mount { 
             name = "prometheus-data"
             mount_path = "/prometheus"
           }
@@ -431,7 +405,7 @@ resource "kubernetes_deployment" "prometheus_deployment" {
         volume {
           name = "prometheus-config-volume"
           config_map {
-            name = kubernetes_config_map.prometheus_config.metadata[0].name
+            name = kubernetes_config_map.prometheus_config.metadata[0].name 
           }
         }
         # 데이터 지속성을 위한 PVC (선택 사항)
@@ -439,7 +413,7 @@ resource "kubernetes_deployment" "prometheus_deployment" {
         volume {
           name = "prometheus-data"
           persistent_volume_claim {
-            claim_name = "prometheus-pvc" # 별도로 Prometheus PVC 정의 필요
+            claim_name = "prometheus-pvc" # 별도로 Prometheus PVC 정의 필요 
           }
         }
         */
@@ -448,6 +422,76 @@ resource "kubernetes_deployment" "prometheus_deployment" {
   }
 }
 
+# Grafana Deployment
+resource "kubernetes_deployment" "grafana_deployment" {
+  metadata {
+    name      = "grafana"
+    namespace = var.namespace
+  }
+  spec {
+    replicas = 1
+    selector {
+      match_labels = {
+        app = "grafana"
+      }
+    }
+    template {
+      metadata {
+        labels = {
+          app = "grafana"
+        }
+      }
+      spec {
+        security_context {
+          fs_group = 472 # Grafana User ID
+        }
+        container {
+          name  = "grafana"
+          image = var.grafana_image
+          env {
+            name  = "GF_SERVER_PROTOCOL"
+            value = "http"
+          }
+          env {
+            name  = "GF_SERVER_HTTP_PORT"
+            value = "${var.grafana_port}"
+          }
+          env {
+            name = "GF_SECURITY_ADMIN_USER"
+            value = var.grafana_admin_user
+          }
+          env {
+            name = "GF_SECURITY_ADMIN_PASSWORD"
+            value = var.grafana_admin_password
+          }
+          port {
+            container_port = var.grafana_port
+          }
+          volume_mount {
+            name       = "grafana-storage"
+            mount_path = "/var/lib/grafana"
+          }
+          volume_mount {
+            name       = "grafana-datasources"
+            mount_path = "/etc/grafana/provisioning/datasources"
+          }
+        }
+        volume {
+          name = "grafana-storage"
+          persistent_volume_claim {
+            claim_name = kubernetes_persistent_volume_claim.grafana_pvc.metadata[0].name
+          }
+        }
+        volume {
+          name = "grafana-datasources"
+          config_map {
+            name = kubernetes_config_map.grafana_datasources.metadata[0].name
+          }
+        }
+      }
+    }
+  }
+}
 
 # --- Services ---
 
@@ -461,7 +505,7 @@ resource "kubernetes_service" "postgres_service" {
     selector = {
       app = kubernetes_deployment.postgres_deployment.spec[0].selector[0].match_labels.app
     }
-    port {
+    port { 
       protocol    = "TCP"
       port        = var.postgres_port
       target_port = var.postgres_port
@@ -477,7 +521,7 @@ resource "kubernetes_service" "litellm_service" {
     namespace = var.namespace
   }
   spec {
-    selector = {
+    selector = { 
       app = kubernetes_deployment.litellm_deployment.spec[0].selector[0].match_labels.app
     }
     port {
@@ -489,7 +533,7 @@ resource "kubernetes_service" "litellm_service" {
     }
     port {
       name = "metrics" # Prometheus 스크래핑을 위한 포트
-      protocol    = "TCP"
+      protocol    = "TCP" 
       port        = var.litellm_metrics_port
       target_port = var.litellm_metrics_port
     }
@@ -504,10 +548,10 @@ resource "kubernetes_service" "openwebui_service" {
     namespace = var.namespace
   }
   spec {
-    # 중요한 부분: 두 버전의 Pod를 모두 선택하기 위해 'app: openwebui' 라벨만 사용
+    # 중요한 부분: 두 버전의 Pod를 모두 선택하기 위해 'app: openwebui' 라벨만 사용 
     selector = {
       app = "openwebui"
-      # 'version' 라벨은 포함하지 않습니다.
+      # 'version' 라벨은 포함하지 않습니다. 
     }
     port {
       protocol    = "TCP"
@@ -520,7 +564,7 @@ resource "kubernetes_service" "openwebui_service" {
   }
 }
 
-# Prometheus Service (NodePort: 로컬 환경 외부 접근용)
+# Prometheus Service (NodePort: 로컬 환경 외부 접근용) 
 resource "kubernetes_service" "prometheus_service" {
   metadata {
     name      = "prometheus-service" # 로컬 환경 외부에서 접근할 서비스 이름
@@ -533,8 +577,28 @@ resource "kubernetes_service" "prometheus_service" {
     port {
       protocol    = "TCP"
       port        = var.prometheus_port # Service Port
-      target_port = var.prometheus_port # Container Port
+      target_port = var.prometheus_port # Container Port 
       node_port   = var.prometheus_service_nodeport # 로컬 환경 외부에서 접근할 Node Port
+    }
+    type = "NodePort" # 로컬 환경에서 외부 접근을 위해 NodePort 사용
+  }
+}
+
+# Grafana Service (NodePort: 로컬 환경 외부 접근용)
+resource "kubernetes_service" "grafana_service" {
+  metadata {
+    name      = "grafana-service"
+    namespace = var.namespace
+  }
+  spec {
+    selector = {
+      app = kubernetes_deployment.grafana_deployment.spec[0].selector[0].match_labels.app
+    }
+    port {
+      protocol    = "TCP"
+      port        = var.grafana_port
+      target_port = var.grafana_port
+      node_port   = var.grafana_service_nodeport
     }
     type = "NodePort" # 로컬 환경에서 외부 접근을 위해 NodePort 사용
   }
