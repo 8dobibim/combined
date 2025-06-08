@@ -116,9 +116,11 @@ terraform apply
 > - [사전준비사항](8dobibim_back/docs/사전준비사항.md)
 > - [Terraform 설정](8dobibim_back/docs/terraform%20설정.md)
 > - [AWS를 통한 배포 가이드](https://github.com/8dobibim/combined/blob/main/8dobibim_back/docs/%EC%95%A0%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98%20%EB%B0%B0%ED%8F%AC%20%EA%B0%80%EC%9D%B4%EB%93%9C.md)
+
 > 📘 **상세한 운영 가이드**:
-> = [배포 검증 가이드](8dobibim_back/docs/배포%검증%가이드.md)
-> = [문제 해결 가이드](8dobibim_back/docs/트러블슈팅%가이드%&%FAQ.md)
+> 
+> - [배포 검증 가이드](https://github.com/8dobibim/combined/blob/main/8dobibim_back/docs/%EB%B0%B0%ED%8F%AC%20%EA%B2%80%EC%A6%9D%20%EA%B0%80%EC%9D%B4%EB%93%9C.md)
+> - [문제 해결 가이드](https://github.com/8dobibim/combined/blob/main/8dobibim_back/docs/%ED%8A%B8%EB%9F%AC%EB%B8%94%EC%8A%88%ED%8C%85%20%EA%B0%80%EC%9D%B4%EB%93%9C%20%26%20FAQ.md)
 
 
 ## 🏗️ 아키텍처
