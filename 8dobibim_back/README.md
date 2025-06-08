@@ -13,7 +13,7 @@
 ## ⚙️ 인프라 설정
 - [🧾 아키텍쳐 가이드](8dobibim_back/docs/아키텍쳐_가이드.md)
 - [📐 Terraform 설정](https://github.com/8dobibim/8dobibim_back/blob/main/docs/Terraform%20설정.md)
-- [☸️ EKS 클러스터 배포 가이드](https://github.com/8dobibim/8dobibim_back/blob/main/docs/EKS%20클러스터%20배포%20가이드.md)
+- [☸️ EKS 클러스터 배포 가이드](8dobibim_back/docs/EKS%클러스터%배포%가이드.md)
 
 ## 🔁 CI/CD 및 애플리케이션 배포
 
