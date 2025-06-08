@@ -77,7 +77,7 @@ kubectl get nodes
 ## 🏗️ 아키텍처
 
 ### 전체 시스템 아키텍처
-```
+```mermaid
 graph TD
     %% 사용자 흐름
     User(User) -->|interact| OpenWebUI(OpenWebUI<br>Multi-chat Interface)
