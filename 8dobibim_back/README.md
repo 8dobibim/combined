@@ -18,7 +18,7 @@
 ## 🔁 CI/CD 및 애플리케이션 배포
 
 - [🚀 CI/CD 파이프라인 가이드라인](https://github.com/8dobibim/8dobibim_back/blob/main/docs/CI_CD%20파이프라인%20가이드라인.md)
-- [📦 애플리케이션 배포 가이드](https://github.com/8dobibim/8dobibim_back/blob/main/docs/애플리케이션%20배포%20가이드.md)
+- [📦 애플리케이션 배포 가이드](8dobibim_back/docs/애플리케이션%배포%가이드.md)
 
 ## ✅ 배포 검증 및 운영
 
