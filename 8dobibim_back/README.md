@@ -23,7 +23,7 @@
 ## ✅ 배포 검증 및 운영
 
 - [🧪 배포 검증 가이드](https://github.com/8dobibim/8dobibim_back/blob/main/docs/배포%20검증%20가이드.md)
-- [🖥️ 운영 매뉴얼](https://github.com/8dobibim/8dobibim_back/blob/main/docs/운영%20매뉴얼.md)
+- [🖥️ 운영 메뉴얼](https://github.com/8dobibim/8dobibim_back/blob/main/docs/운영%20메뉴얼.md)
 
 ## 🛠️ 트러블슈팅
 
