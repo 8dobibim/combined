@@ -22,7 +22,7 @@
 
 ## 🚀 프로젝트 구동 방법
 
-### 8dobibim_back (인프라 배포)
+### AWS를 통해 구동 및 배포하기
 
 AWS EKS 클러스터 및 관련 인프라를 배포하는 방법입니다.
 
@@ -35,6 +35,12 @@ terraform --version    # Terraform v1.5+
 kubectl version        # kubectl v1.24+
 ```
 
+#### 0단계: 본 repository clone 하기
+
+```bash
+git clone https://github.com/8dobibim/combined.git
+```
+
 #### 1단계: AWS 자격 증명 설정
 
 ```bash
@@ -45,13 +51,13 @@ aws configure
 #### 2단계: 인프라 배포
 
 ```bash
-cd 8dobibim_back/terraform-related/terraform
+cd 8dobibim_back/terraform-related/AWS_terraform_grafana
 
 # Terraform 초기화
 terraform init
 
 # 배포 계획 확인
-terraform plan -var-file="dev.tfvars"
+terraform plan #실행 전 fvars.example 파일 및 폴더 내 readme를 참고하여 설정을 마쳐주세요!
 
 # 인프라 배포
 terraform apply
@@ -67,11 +73,50 @@ aws eks update-kubeconfig --region ap-northeast-2 --name openwebui-eks-dev
 kubectl get nodes
 ```
 
+#### 4단계 : litellm 설정 및 open webui 설정 후 사용하기
+
+
+### 로컬 환경에서 구동 및 배포하기
+
+로컬 환경을 통해 인프라를 배포하는 방법입니다.
+
+#### 사전 준비사항
+
+```bash
+# 필수 도구 설치 확인
+terraform --version    # Terraform v1.5+
+kubectl version        # kubectl v1.24+
+```
+#### 0단계: 본 repository clone 하기
+
+```bash
+git clone https://github.com/8dobibim/combined.git
+```
+#### 1단계: 인프라 배포하기
+
+```bash
+cd 8dobibim_back/terraform-related/local_provider_grafana
+
+# Terraform 초기화
+terraform init
+
+# 배포 계획 확인
+terraform plan #실행 전 fvars.example 파일 및 폴더 내 readme를 참고하여 설정을 마쳐주세요!
+
+# 인프라 배포
+terraform apply
+```
+
+#### 2단계: litellm 설정 및 open webui 설정 후 사용하기
+
 > 📘 **상세한 배포 가이드**: `8dobibim_back/README.md` 및 `docs/` 디렉토리의 한국어 문서를 참조하세요.
 >
 > - [사전준비사항](8dobibim_back/docs/사전준비사항.md)
 > - [Terraform 설정](8dobibim_back/docs/terraform%20설정.md)
 > - [EKS 클러스터 배포 가이드](8dobibim_back/docs/eks%20클러스터%20배포%20가이드.md)
+> 📘 **상세한 운영 가이드**:
+> = [EKS 클러스터 배포 가이드](8dobibim_back/docs/배포%검증%가이드.md)
+> = [문제 해결 가이](8dobibim_back/docs/트러블슈팅%가이드%&%FAQ.md)
 
 
 ## 🏗️ 아키텍처
