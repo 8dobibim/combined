@@ -1,501 +1,351 @@
-# ⚙️ EKS 클러스터 배포 가이드
+# 🚀 Terraform을 이용한 AWS EKS 배포 가이드
 
 > **⏱️ 예상 소요시간**: 30-45분  
-> **💡 난이도**: 중급  
-> **📋 목표**: Terraform으로 생성된 EKS 클러스터에 필수 컴포넌트를 설치하고 설정합니다.
+> **💰 예상 비용**: 시간당 약 $0.5-1.0 (t3.medium 인스턴스 2개 기준)  
+> **📋 목표**: AWS에 Kubernetes 클러스터를 만들고 서비스를 배포합니다.
 
 ---
 
-## 📋 배포 완료 체크리스트
+## 📋 시작하기 전에 준비할 것들
 
-- [ ] kubectl 클러스터 연결 설정
-- [ ] AWS Load Balancer Controller 설치
-- [ ] EBS CSI Driver 설정
-- [ ] Cluster Autoscaler 설치
-- [ ] Metrics Server 설치
-- [ ] 네임스페이스 생성
-- [ ] RBAC 설정
+### 1. AWS 계정
+- AWS 계정이 없다면: https://aws.amazon.com 에서 가입
+- 신용카드 필요 (과금 주의!)
 
----
+### 2. 필요한 프로그램 설치
+아래 프로그램들을 순서대로 설치하세요:
 
-## 🔗 1단계: 클러스터 연결 설정
+#### Windows 사용자
+```powershell
+# 1. Chocolatey 설치 (Windows 패키지 관리자)
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
-### kubectl 설정
+# 2. 필요한 프로그램 설치
+choco install terraform aws-cli kubectl -y
+
+# 3. 설치 확인
+terraform --version
+aws --version
+kubectl version --client
+```
+
+#### Mac 사용자
 ```bash
-# EKS 클러스터에 연결
-aws eks update-kubeconfig --region ap-northeast-2 --name openwebui-eks-dev
+# 1. Homebrew 설치 (Mac 패키지 관리자)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 클러스터 연결 확인
-kubectl cluster-info
+# 2. 필요한 프로그램 설치
+brew install terraform awscli kubectl
+
+# 3. 설치 확인
+terraform --version
+aws --version
+kubectl version --client
+```
+
+---
+
+## 🔐 STEP 1: AWS 접속 설정
+
+### 1.1 AWS Access Key 생성
+1. AWS 콘솔 로그인: https://console.aws.amazon.com
+2. 우측 상단 계정명 클릭 → "Security credentials" 클릭
+3. "Access keys" 섹션에서 "Create access key" 클릭
+4. "Command Line Interface (CLI)" 선택 → Next
+5. Access Key ID와 Secret Access Key를 안전한 곳에 복사해두기
+
+### 1.2 AWS CLI 설정
+터미널/명령 프롬프트에서:
+```bash
+aws configure --profile llm
+```
+다음 정보 입력:
+- AWS Access Key ID: [위에서 복사한 Access Key ID]
+- AWS Secret Access Key: [위에서 복사한 Secret Key]
+- Default region name: `ap-northeast-2` (서울 리전)
+- Default output format: `json`
+
+---
+
+## 📁 STEP 2: 프로젝트 파일 준비
+
+### 2.1 GitHub 레포지토리 클론
+```bash
+# 홈 디렉토리로 이동
+cd ~
+
+# GitHub 레포지토리 클론
+git clone https://github.com/8dobibim/combined.git
+
+# Terraform 폴더로 이동
+cd combined/8dobibim_back/terraform-related/AWS_terraform_grafana
+```
+
+### 2.2 AWS Access Key 생성
+클론한 레포지토리에는 이미 필요한 파일들이 포함되어 있습니다:
+
+1. `main.tf` - 메인 인프라 설정
+2. `variables.tf` - 변수 정의
+3. `versions.tf` - Terraform 버전 설정  
+4. `tfvars.example` - 설정값 예시 파일
+
+파일들이 제대로 있는지 확인:
+```bash
+# 파일 목록 확인
+ls -la
+
+# 출력 예시:
+# main.tf
+# variables.tf
+# versions.tf
+# tfvars.example
+```
+
+### 2.3 terraform.tfvars 파일 생성 및 수정
+
+```bash
+# tfvars.example 파일을 복사하여 terraform.tfvars 생성
+cp tfvars.example terraform.tfvars
+
+# 편집기로 열기
+# Windows: notepad terraform.tfvars
+# Mac/Linux: nano terraform.tfvars
+```
+
+**중요! 다음 값들을 실제 값으로 변경하세요:**
+
+```hcl
+# terraform.tfvars 수정 예시
+
+# 1. VPC와 서브넷은 새로 생성되므로 수정 불필요
+vpc_id = "vpc-0822943b0a085c50a"  # 그대로 둬도 됨 (main.tf에서 새로 생성)
+private_subnet_ids = ["subnet-0123683b550a9a14b", "subnet-0d49ef817f70df74b"]  # 그대로 둬도 됨
+
+# 2. API 키들 - 반드시 실제 값으로 변경!
+GEMINI_API_KEY = "여기에-실제-Gemini-API-키"
+AZURE_API_KEY = "여기에-실제-Azure-API-키"
+AZURE_API_BASE = "https://your-resource.openai.azure.com/"  # Azure OpenAI 엔드포인트
+AZURE_API_VERSION = "2023-07-01-preview"
+
+# 3. 보안 키 - 원하는 값으로 변경
+litellm_master_key = "sk-my-secure-master-key-12345"
+litellm_salt_key = "my-secure-salt-key-67890"
+
+# 4. PostgreSQL 설정 - 원하는 값으로 변경
+postgres_user = "dbadmin"
+postgres_password = "SuperSecurePass123!"
+postgres_db = "openwebui_db"
+
+# 5. database_url은 위 값들로 자동 생성
+database_url = "postgresql://dbadmin:SuperSecurePass123!@postgres-service:5432/openwebui_db"
+```
+
+### 2.4 API 키 얻는 방법
+
+#### Gemini API Key
+1. https://makersuite.google.com/app/apikey 접속
+2. Google 계정으로 로그인
+3. "Create API Key" 클릭
+4. 생성된 키 복사
+
+#### Azure OpenAI Key (선택사항)
+1. https://portal.azure.com 접속
+2. Azure OpenAI 리소스 생성 필요
+3. 리소스 → Keys and Endpoint에서 키 확인
+
+**참고**: API 키가 없어도 배포는 가능하지만, AI 모델을 사용할 수 없습니다.
+
+---
+
+## 🏗️ STEP 3: 인프라 배포
+
+### 3.1 Terraform 초기화
+```bash
+terraform init
+```
+
+성공 메시지가 나타나야 합니다:
+```
+Terraform has been successfully initialized!
+```
+
+### 3.2 배포 계획 확인
+```bash
+terraform plan
+```
+
+만들어질 리소스들을 확인합니다. 약 30-40개의 리소스가 생성됩니다.
+
+### 3.3 실제 배포 실행
+```bash
+terraform apply
+```
+
+다음과 같이 물어보면 `yes` 입력:
+```
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value: yes
+```
+
+**⏳ 대기**: 15-20분 정도 소요됩니다. 커피 한잔 하고 오세요! ☕
+
+---
+
+## 🔍 STEP 4: 배포 확인
+
+### 4.1 EKS 클러스터 접속 설정
+```bash
+# kubeconfig 업데이트
+aws eks update-kubeconfig --name llm-project-eks --region ap-northeast-2 --profile llm
+
+# 연결 확인
 kubectl get nodes
 ```
 
-**예상 출력:**
-```
-NAME                                        STATUS   ROLES    AGE   VERSION
-ip-10-0-10-xxx.ap-northeast-2.compute.internal   Ready    <none>   5m    v1.28.x
-ip-10-0-20-xxx.ap-northeast-2.compute.internal   Ready    <none>   5m    v1.28.x
-```
+노드 목록이 보이면 성공!
 
-### 클러스터 정보 확인
+### 4.2 서비스 상태 확인
 ```bash
-# 클러스터 상세 정보
-kubectl get nodes -o wide
+# 모든 Pod 확인
+kubectl get pods --all-namespaces
 
-# 네임스페이스 확인
-kubectl get namespaces
-
-# 기본 파드 상태 확인
-kubectl get pods -n kube-system
+# 서비스 확인
+kubectl get svc --all-namespaces
 ```
+
+### 4.3 외부 접속 URL 확인
+```bash
+# OpenWebUI 접속 주소 확인
+kubectl get svc openwebui-service -n default
+```
+
+`EXTERNAL-IP` 열에 표시된 주소를 복사합니다.
+예: `a1234567890-123456789.ap-northeast-2.elb.amazonaws.com`
 
 ---
 
-## 🌐 2단계: AWS Load Balancer Controller 설치
+## 🌐 STEP 5: 서비스 접속
 
-### IAM 역할 생성
-```bash
-# OIDC 제공자 URL 확인
-aws eks describe-cluster --name openwebui-eks-dev --query "cluster.identity.oidc.issuer" --output text
+### 5.1 브라우저에서 접속
+1. 브라우저 열기
+2. 주소창에 입력: `http://[EXTERNAL-IP]:3000`
+3. OpenWebUI 화면이 나타나면 성공!
 
-# IAM OIDC 제공자 생성
-eksctl utils associate-iam-oidc-provider --cluster=openwebui-eks-dev --approve
-
-# Load Balancer Controller용 IAM 정책 다운로드
-curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
-
-# IAM 정책 생성
-aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://iam_policy.json
-
-# 서비스 어카운트 생성
-eksctl create iamserviceaccount \
-  --cluster=openwebui-eks-dev \
-  --namespace=kube-system \
-  --name=aws-load-balancer-controller \
-  --role-name AmazonEKSLoadBalancerControllerRole \
-  --attach-policy-arn=arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/AWSLoadBalancerControllerIAMPolicy \
-  --approve
-```
-
-### Helm으로 설치
-```bash
-# Helm 저장소 추가
-helm repo add eks https://aws.github.io/eks-charts
-helm repo update
-
-# AWS Load Balancer Controller 설치
-helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
-  -n kube-system \
-  --set clusterName=openwebui-eks-dev \
-  --set serviceAccount.create=false \
-  --set serviceAccount.name=aws-load-balancer-controller
-
-# 설치 확인
-kubectl get deployment -n kube-system aws-load-balancer-controller
-```
+### 5.2 초기 설정
+1. 첫 접속 시 "Sign up" 클릭
+2. 이메일과 비밀번호로 계정 생성
+3. 로그인 후 AI 모델과 대화 시작
 
 ---
 
-## 💾 3단계: EBS CSI Driver 설정
+## 💰 STEP 6: 비용 관리 (중요!)
 
-### IAM 역할 생성
+### 6.1 리소스 삭제 (사용 후 반드시 실행!)
 ```bash
-# EBS CSI Driver용 서비스 어카운트 생성
-eksctl create iamserviceaccount \
-  --name ebs-csi-controller-sa \
-  --namespace kube-system \
-  --cluster openwebui-eks-dev \
-  --role-name AmazonEKS_EBS_CSI_DriverRole \
-  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
-  --approve
+# 모든 리소스 삭제
+terraform destroy
+
+# 확인 메시지에 yes 입력
 ```
 
-### Add-on 활성화
+### 6.2 비용 확인
+- AWS Console → Billing → Cost Explorer에서 확인
+- 주요 비용 요소:
+  - EC2 인스턴스 (t3.medium x 2)
+  - EBS 볼륨
+  - Load Balancer
+  - 데이터 전송
+
+---
+
+## 🔧 문제 해결
+
+### "kubectl: command not found" 오류
 ```bash
-# EBS CSI Driver Add-on 설치
-aws eks create-addon \
-  --cluster-name openwebui-eks-dev \
-  --addon-name aws-ebs-csi-driver \
-  --service-account-role-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/AmazonEKS_EBS_CSI_DriverRole
+# Windows
+choco install kubernetes-cli
 
-# 설치 확인
-kubectl get pods -n kube-system -l app=ebs-csi-controller
+# Mac
+brew install kubectl
 ```
 
-### StorageClass 생성
-```yaml
-# storage-class.yaml
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: gp3-encrypted
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
-provisioner: ebs.csi.aws.com
-parameters:
-  type: gp3
-  encrypted: "true"
-  fsType: ext4
-volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
-```
-
+### "Error: error configuring Terraform AWS Provider" 오류
 ```bash
-# 기본 StorageClass 제거
-kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
-
-# 새 StorageClass 적용
-kubectl apply -f storage-class.yaml
-
-# 확인
-kubectl get storageclass
+# AWS 자격 증명 재설정
+aws configure --profile llm
 ```
 
----
-
-## 📈 4단계: Cluster Autoscaler 설치
-
-### cluster-autoscaler.yaml
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cluster-autoscaler
-  namespace: kube-system
-  labels:
-    app: cluster-autoscaler
-spec:
-  selector:
-    matchLabels:
-      app: cluster-autoscaler
-  template:
-    metadata:
-      labels:
-        app: cluster-autoscaler
-    spec:
-      serviceAccountName: cluster-autoscaler
-      containers:
-      - image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.28.2
-        name: cluster-autoscaler
-        resources:
-          limits:
-            cpu: 100m
-            memory: 600Mi
-          requests:
-            cpu: 100m
-            memory: 600Mi
-        command:
-        - ./cluster-autoscaler
-        - --v=4
-        - --stderrthreshold=info
-        - --cloud-provider=aws
-        - --skip-nodes-with-local-storage=false
-        - --expander=least-waste
-        - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/openwebui-eks-dev
-        - --balance-similar-node-groups
-        - --skip-nodes-with-system-pods=false
-        env:
-        - name: AWS_REGION
-          value: ap-northeast-2
-        volumeMounts:
-        - name: ssl-certs
-          mountPath: /etc/ssl/certs/ca-certificates.crt
-          readOnly: true
-      volumes:
-      - name: ssl-certs
-        hostPath:
-          path: "/etc/ssl/certs/ca-certificates.crt"
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  labels:
-    k8s-addon: cluster-autoscaler.addons.k8s.io
-    k8s-app: cluster-autoscaler
-  name: cluster-autoscaler
-  namespace: kube-system
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/AmazonEKSClusterAutoscalerRole
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: cluster-autoscaler
-  labels:
-    k8s-addon: cluster-autoscaler.addons.k8s.io
-    k8s-app: cluster-autoscaler
-rules:
-- apiGroups: [""]
-  resources: ["events", "endpoints"]
-  verbs: ["create", "patch"]
-- apiGroups: [""]
-  resources: ["pods/eviction"]
-  verbs: ["create"]
-- apiGroups: [""]
-  resources: ["pods/status"]
-  verbs: ["update"]
-- apiGroups: [""]
-  resources: ["endpoints"]
-  resourceNames: ["cluster-autoscaler"]
-  verbs: ["get", "update"]
-- apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["watch", "list", "get", "update"]
-- apiGroups: [""]
-  resources: ["namespaces", "pods", "services", "replicationcontrollers", "persistentvolumeclaims", "persistentvolumes"]
-  verbs: ["watch", "list", "get"]
-- apiGroups: ["extensions"]
-  resources: ["replicasets", "daemonsets"]
-  verbs: ["watch", "list", "get"]
-- apiGroups: ["policy"]
-  resources: ["poddisruptionbudgets"]
-  verbs: ["watch", "list"]
-- apiGroups: ["apps"]
-  resources: ["statefulsets", "replicasets", "daemonsets"]
-  verbs: ["watch", "list", "get"]
-- apiGroups: ["storage.k8s.io"]
-  resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
-  verbs: ["watch", "list", "get"]
-- apiGroups: ["batch", "extensions"]
-  resources: ["jobs"]
-  verbs: ["get", "list", "watch", "patch"]
-- apiGroups: ["coordination.k8s.io"]
-  resources: ["leases"]
-  verbs: ["create"]
-- apiGroups: ["coordination.k8s.io"]
-  resourceNames: ["cluster-autoscaler"]
-  resources: ["leases"]
-  verbs: ["get", "update"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cluster-autoscaler
-  labels:
-    k8s-addon: cluster-autoscaler.addons.k8s.io
-    k8s-app: cluster-autoscaler
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-autoscaler
-subjects:
-- kind: ServiceAccount
-  name: cluster-autoscaler
-  namespace: kube-system
-```
-
-### IAM 역할 생성 및 배포
+### Pod가 계속 Pending 상태인 경우
 ```bash
-# Cluster Autoscaler용 IAM 정책 생성
-cat > cluster-autoscaler-policy.json << EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": [
-                "autoscaling:DescribeAutoScalingGroups",
-                "autoscaling:DescribeAutoScalingInstances",
-                "autoscaling:DescribeLaunchConfigurations",
-                "autoscaling:DescribeTags",
-                "autoscaling:SetDesiredCapacity",
-                "autoscaling:TerminateInstanceInAutoScalingGroup",
-                "ec2:DescribeLaunchTemplateVersions"
-            ],
-            "Resource": "*",
-            "Effect": "Allow"
-        }
-    ]
-}
-EOF
+# Pod 상태 상세 확인
+kubectl describe pod [POD_NAME] -n default
 
-# IAM 정책 생성
-aws iam create-policy \
-    --policy-name AmazonEKSClusterAutoscalerPolicy \
-    --policy-document file://cluster-autoscaler-policy.json
-
-# 서비스 어카운트 생성
-eksctl create iamserviceaccount \
-  --cluster=openwebui-eks-dev \
-  --namespace=kube-system \
-  --name=cluster-autoscaler \
-  --attach-policy-arn=arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/AmazonEKSClusterAutoscalerPolicy \
-  --override-existing-serviceaccounts \
-  --approve
-
-# Cluster Autoscaler 배포
-kubectl apply -f cluster-autoscaler.yaml
-
-# 확인
-kubectl get pods -n kube-system -l app=cluster-autoscaler
-```
-
----
-
-## 📊 5단계: Metrics Server 설치
-
-```bash
-# Metrics Server 설치
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-
-# 확인
-kubectl get deployment metrics-server -n kube-system
-kubectl top nodes
-```
-
----
-
-## 🗂️ 6단계: 네임스페이스 및 RBAC 설정
-
-### 네임스페이스 생성
-```yaml
-# namespaces.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openwebui
-  labels:
-    name: openwebui
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: litellm
-  labels:
-    name: litellm
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: monitoring
-  labels:
-    name: monitoring
-```
-
-```bash
-kubectl apply -f namespaces.yaml
-kubectl get namespaces
-```
-
-### RBAC 설정
-```yaml
-# rbac.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: openwebui-sa
-  namespace: openwebui
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: openwebui-role
-rules:
-- apiGroups: [""]
-  resources: ["pods", "services", "configmaps", "secrets"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["apps"]
-  resources: ["deployments", "replicasets"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: openwebui-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: openwebui-role
-subjects:
-- kind: ServiceAccount
-  name: openwebui-sa
-  namespace: openwebui
-```
-
-```bash
-kubectl apply -f rbac.yaml
-```
-
----
-
-## 🔧 7단계: 클러스터 설정 검증
-
-### 전체 상태 확인 스크립트
-```bash
-#!/bin/bash
-# verify-cluster.sh
-
-echo "🔍 EKS 클러스터 검증 시작..."
-
-echo "📋 1. 노드 상태 확인"
-kubectl get nodes -o wide
-
-echo "📋 2. 시스템 파드 상태 확인"
-kubectl get pods -n kube-system
-
-echo "📋 3. StorageClass 확인"
-kubectl get storageclass
-
-echo "📋 4. 네임스페이스 확인"
-kubectl get namespaces
-
-echo "📋 5. Load Balancer Controller 확인"
-kubectl get deployment -n kube-system aws-load-balancer-controller
-
-echo "📋 6. Cluster Autoscaler 확인"
-kubectl get pods -n kube-system -l app=cluster-autoscaler
-
-echo "📋 7. Metrics Server 확인"
-kubectl top nodes
-
-echo "✅ 클러스터 검증 완료!"
-```
-
-```bash
-chmod +x verify-cluster.sh
-./verify-cluster.sh
-```
-
----
-
-## 🚨 문제 해결
-
-### 자주 발생하는 문제
-
-#### 1. Load Balancer Controller 설치 실패
-```bash
-# OIDC 제공자 확인
-aws eks describe-cluster --name openwebui-eks-dev --query "cluster.identity.oidc.issuer" --output text
-
-# 서비스 어카운트 재생성
-eksctl delete iamserviceaccount --cluster=openwebui-eks-dev --name=aws-load-balancer-controller --namespace=kube-system
-# 다시 생성...
-```
-
-#### 2. 노드 그룹이 Ready 상태가 아닌 경우
-```bash
-# 노드 상세 정보 확인
+# 노드 상태 확인
 kubectl describe nodes
-
-# 로그 확인
-kubectl logs -n kube-system -l k8s-app=aws-node
 ```
 
-#### 3. Metrics Server 오류
-```bash
-# Metrics Server 로그 확인
-kubectl logs -n kube-system -l k8s-app=metrics-server
+### LoadBalancer가 생성되지 않는 경우
+1. AWS 콘솔에서 EC2 → Load Balancers 확인
+2. VPC와 서브넷 설정 확인
+3. 보안 그룹 설정 확인
 
-# 재설치
-kubectl delete -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+---
+
+## 📝 추가 명령어 모음
+
+### 로그 확인
+```bash
+# LiteLLM 로그
+kubectl logs -l app=litellm -n default
+
+# OpenWebUI 로그  
+kubectl logs -l app=openwebui -n default
+
+# PostgreSQL 로그
+kubectl logs -l app=postgres -n default
+```
+
+### 재시작
+```bash
+# 특정 서비스 재시작
+kubectl rollout restart deployment/openwebui -n default
+kubectl rollout restart deployment/litellm -n default
+```
+
+### 스케일 조정
+```bash
+# Pod 개수 늘리기
+kubectl scale deployment/openwebui --replicas=3 -n default
 ```
 
 ---
 
-## ⏭️ 다음 단계
+## 🎯 체크리스트
 
-EKS 클러스터 설정이 완료되었다면:
-- **[05-application-deployment.md]** - OpenWebUI 애플리케이션 배포
-- **[06-verification.md]** - 배포 검증 및 테스트
+- [ ] AWS 계정 생성 완료
+- [ ] AWS CLI 설정 완료
+- [ ] Terraform 설치 완료
+- [ ] 프로젝트 파일 생성 완료
+- [ ] terraform.tfvars 수정 완료
+- [ ] terraform init 실행 완료
+- [ ] terraform apply 실행 완료
+- [ ] kubectl 연결 확인 완료
+- [ ] 웹 브라우저로 접속 성공
+- [ ] **terraform destroy 실행 (사용 후 필수!)**
+
+---
+
+## 🆘 도움이 필요하면
+
+1. 오류 메시지를 정확히 복사
+2. 어느 단계에서 문제가 발생했는지 확인
+3. AWS 콘솔에서 리소스 생성 상태 확인
+4. CloudFormation 스택 확인 (실패한 리소스 확인)
+
+**기억하세요**: 
+- 🔴 사용 후에는 반드시 `terraform destroy`를 실행하여 비용 발생을 막으세요!
+- 🟡 API 키는 절대로 GitHub 등에 공개하지 마세요!
+- 🟢 문제가 생기면 당황하지 말고 차근차근 로그를 확인하세요!
